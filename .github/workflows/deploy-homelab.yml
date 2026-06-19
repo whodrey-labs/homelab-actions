@@ -1,0 +1,64 @@
+name: Homelab Deploy
+
+on:
+  workflow_call:
+    inputs:
+      deploy_path:
+        description: "Path on the homelab server where the project lives"
+        required: true
+        type: string
+
+      compose_file:
+        description: "Docker Compose file to use"
+        required: false
+        type: string
+        default: compose.yml
+
+      branch:
+        description: "Git branch to pull on the server"
+        required: false
+        type: string
+        default: main
+
+      use_tailscale:
+        description: "Whether to connect GitHub Actions to Tailscale before SSH"
+        required: false
+        type: boolean
+        default: true
+
+    secrets:
+      HOMELAB_SSH_KEY:
+        required: true
+      HOMELAB_HOST:
+        required: true
+      HOMELAB_USER:
+        required: true
+      TAILSCALE_AUTHKEY:
+        required: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Connect to Tailscale
+        if: ${{ inputs.use_tailscale }}
+        uses: tailscale/github-action@v3
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.HOMELAB_HOST }}
+          username: ${{ secrets.HOMELAB_USER }}
+          key: ${{ secrets.HOMELAB_SSH_KEY }}
+          script: |
+            set -e
+
+            cd "${{ inputs.deploy_path }}"
+
+            git fetch origin "${{ inputs.branch }}"
+            git reset --hard "origin/${{ inputs.branch }}"
+
+            docker compose -f "${{ inputs.compose_file }}" up -d --build
