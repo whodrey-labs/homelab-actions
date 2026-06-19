@@ -3,14 +3,8 @@ name: Homelab Deploy
 on:
   workflow_call:
     inputs:
-      compose_file:
-        description: "Docker Compose file to use"
-        required: false
-        type: string
-        default: compose.yml
-
       branch:
-        description: "Git branch to pull on the server"
+        description: "Git branch to deploy"
         required: false
         type: string
         default: main
@@ -42,7 +36,7 @@ jobs:
         with:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
 
-      - name: Deploy via SSH
+      - name: Deploy via homelab pipeline
         uses: appleboy/ssh-action@v1.2.2
         with:
           host: ${{ secrets.HOMELAB_HOST }}
@@ -52,30 +46,29 @@ jobs:
             set -e
 
             REPO_NAME="$(basename "${{ github.repository }}")"
-            DEPLOY_BASE_PATH="/home/${{ secrets.HOMELAB_USER }}/docker/sites"
-            DEPLOY_PATH="$DEPLOY_BASE_PATH/$REPO_NAME"
             BRANCH="${{ inputs.branch }}"
-            COMPOSE_FILE="${{ inputs.compose_file }}"
+            SITES_BASE="/home/${{ secrets.HOMELAB_USER }}/docker/sites"
+            SITE_PATH="$SITES_BASE/$REPO_NAME"
             REPO_URL="https://github.com/${{ github.repository }}.git"
+            DEPLOY_SCRIPT="/home/${{ secrets.HOMELAB_USER }}/homelab-infra/scripts/deploy-site.sh"
 
             echo "Repo name: $REPO_NAME"
-            echo "Deploy path: $DEPLOY_PATH"
+            echo "Site path: $SITE_PATH"
             echo "Repo URL: $REPO_URL"
             echo "Branch: $BRANCH"
-            echo "Compose file: $COMPOSE_FILE"
 
-            mkdir -p "$DEPLOY_BASE_PATH"
+            mkdir -p "$SITES_BASE"
 
-            if [ ! -d "$DEPLOY_PATH/.git" ]; then
+            if [ ! -d "$SITE_PATH/.git" ]; then
               echo "Project folder does not exist yet. Cloning..."
-              rm -rf "$DEPLOY_PATH"
-              git clone --branch "$BRANCH" "$REPO_URL" "$DEPLOY_PATH"
+              rm -rf "$SITE_PATH"
+              git clone --branch "$BRANCH" "$REPO_URL" "$SITE_PATH"
             else
               echo "Project folder exists. Updating..."
-              cd "$DEPLOY_PATH"
+              cd "$SITE_PATH"
               git fetch origin "$BRANCH"
               git reset --hard "origin/$BRANCH"
             fi
 
-            cd "$DEPLOY_PATH"
-            docker compose -f "$COMPOSE_FILE" up -d --build
+            echo "Running homelab deploy pipeline..."
+            bash "$DEPLOY_SCRIPT" "$SITE_PATH"
