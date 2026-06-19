@@ -56,9 +56,26 @@ jobs:
           script: |
             set -e
 
-            cd "${{ inputs.deploy_path }}"
+            DEPLOY_PATH="${{ inputs.deploy_path }}"
+            BRANCH="${{ inputs.branch }}"
+            COMPOSE_FILE="${{ inputs.compose_file }}"
+            REPO_SSH="git@github.com:${{ github.repository }}.git"
 
-            git fetch origin "${{ inputs.branch }}"
-            git reset --hard "origin/${{ inputs.branch }}"
+            echo "Deploy path: $DEPLOY_PATH"
+            echo "Repo: $REPO_SSH"
+            echo "Branch: $BRANCH"
 
-            docker compose -f "${{ inputs.compose_file }}" up -d --build
+            mkdir -p "$(dirname "$DEPLOY_PATH")"
+
+            if [ ! -d "$DEPLOY_PATH/.git" ]; then
+              echo "Project folder does not exist yet. Cloning..."
+              git clone --branch "$BRANCH" "$REPO_SSH" "$DEPLOY_PATH"
+            else
+              echo "Project folder exists. Updating..."
+              cd "$DEPLOY_PATH"
+              git fetch origin "$BRANCH"
+              git reset --hard "origin/$BRANCH"
+            fi
+
+            cd "$DEPLOY_PATH"
+            docker compose -f "$COMPOSE_FILE" up -d --build
