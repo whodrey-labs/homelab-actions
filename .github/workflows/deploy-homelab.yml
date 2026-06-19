@@ -3,11 +3,6 @@ name: Homelab Deploy
 on:
   workflow_call:
     inputs:
-      deploy_path:
-        description: "Path on the homelab server where the project lives"
-        required: true
-        type: string
-
       compose_file:
         description: "Docker Compose file to use"
         required: false
@@ -56,20 +51,25 @@ jobs:
           script: |
             set -e
 
-            DEPLOY_PATH="${{ inputs.deploy_path }}"
+            REPO_NAME="$(basename "${{ github.repository }}")"
+            DEPLOY_BASE_PATH="/home/${{ secrets.HOMELAB_USER }}/docker/sites"
+            DEPLOY_PATH="$DEPLOY_BASE_PATH/$REPO_NAME"
             BRANCH="${{ inputs.branch }}"
             COMPOSE_FILE="${{ inputs.compose_file }}"
-            REPO_SSH="git@github.com:${{ github.repository }}.git"
+            REPO_URL="https://github.com/${{ github.repository }}.git"
 
+            echo "Repo name: $REPO_NAME"
             echo "Deploy path: $DEPLOY_PATH"
-            echo "Repo: $REPO_SSH"
+            echo "Repo URL: $REPO_URL"
             echo "Branch: $BRANCH"
+            echo "Compose file: $COMPOSE_FILE"
 
-            mkdir -p "$(dirname "$DEPLOY_PATH")"
+            mkdir -p "$DEPLOY_BASE_PATH"
 
             if [ ! -d "$DEPLOY_PATH/.git" ]; then
               echo "Project folder does not exist yet. Cloning..."
-              git clone --branch "$BRANCH" "$REPO_SSH" "$DEPLOY_PATH"
+              rm -rf "$DEPLOY_PATH"
+              git clone --branch "$BRANCH" "$REPO_URL" "$DEPLOY_PATH"
             else
               echo "Project folder exists. Updating..."
               cd "$DEPLOY_PATH"
