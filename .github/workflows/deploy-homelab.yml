@@ -1,26 +1,31 @@
-name: Homelab Deploy
-
 on:
   workflow_call:
     inputs:
+      deploy_path:
+        required: true
+        type: string
+
+      compose_file:
+        required: false
+        type: string
+        default: compose.prod.yml
+
       branch:
-        description: "Git branch to deploy"
         required: false
         type: string
         default: main
 
       use_tailscale:
-        description: "Whether to connect GitHub Actions to Tailscale before SSH"
         required: false
         type: boolean
         default: true
 
     secrets:
-      HOMELAB_SSH_KEY:
-        required: true
       HOMELAB_HOST:
         required: true
       HOMELAB_USER:
+        required: true
+      HOMELAB_SSH_KEY:
         required: true
       TAILSCALE_AUTHKEY:
         required: false
